@@ -119,6 +119,24 @@ public class ParticipantsActivity extends ListActivity {
 	        cursor.close();
 	        return contactList;
 	    }
+	    
+	    public Contact getContact(String phoneNumber) {
+	        String[] projection = new String[]{CONTACT_ID, DISPLAY_NAME, HAS_PHONE_NUMBER, STARRED_CONTACT};
+	        String selection = null;
+	        Cursor cursor = contentResolver.query(QUERY_URI, projection, selection, null, null);
+
+	        while (cursor.moveToNext()) {
+	            Contact contact = getContact(cursor);
+	            if (contact.phone.equals(phoneNumber)) {
+	            	cursor.close();
+	            	return contact;
+	            }
+	        }
+	        
+	        cursor.close();
+	        return null;
+	        
+	    }
 	 
 	    private Contact getContact(Cursor cursor) {
 	        String contactId = cursor.getString(cursor.getColumnIndex(CONTACT_ID));

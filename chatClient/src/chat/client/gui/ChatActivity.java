@@ -44,6 +44,8 @@ import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
 import android.os.Bundle;
+import android.telephony.PhoneStateListener;
+import android.telephony.TelephonyManager;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
@@ -54,7 +56,6 @@ import android.widget.EditText;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import chat.client.agent.ChatClientInterface;
-import jade.util.leap.Set;
 
 /**
  * This activity implement the chat interface.
@@ -78,7 +79,10 @@ public class ChatActivity extends Activity {
 	private ChatClientInterface chatClientInterface;
 	private String[] llist;
 	private String[] jlist;
-	
+
+    static boolean isRinging = false;
+    static boolean callReceived = false;
+    
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
@@ -166,6 +170,9 @@ public class ChatActivity extends Activity {
 
 		Button button = (Button) findViewById(R.id.button_send);
 		button.setOnClickListener(buttonSendListener);
+        
+        TelephonyManager manager = (TelephonyManager) getSystemService(Context.TELEPHONY_SERVICE);
+        manager.listen(new TeleListener(), PhoneStateListener.LISTEN_CALL_STATE);
 	}
 
 	@Override
@@ -296,6 +303,30 @@ public class ChatActivity extends Activity {
 				System.out.println(e.getMessage());
 				final TextView chatField = (TextView) findViewById(R.id.chatTextView);
 				chatField.append("NullPointerEx\n");
+			}
+		}
+	}
+	
+	class TeleListener extends PhoneStateListener {
+		public void onCallStateChanged (int state, String incomingNumber) {
+			super.onCallStateChanged(state, incomingNumber);
+			switch (state) {
+			case TelephonyManager.CALL_STATE_IDLE:
+				if(isRinging == true && callReceived == false) {
+					//Missed call from incomingNumber
+					chatClientInterface.handleSpoken("Hello " + incomingNumber);
+				}
+				isRinging = false;
+				callReceived = false;
+				break;
+			case TelephonyManager.CALL_STATE_OFFHOOK:
+				callReceived = true;
+				break;
+			case TelephonyManager.CALL_STATE_RINGING:
+				isRinging = true;
+				break;
+			default:
+				break;
 			}
 		}
 	}
