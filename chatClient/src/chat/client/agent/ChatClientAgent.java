@@ -41,9 +41,12 @@ import jade.util.Logger;
 import jade.util.leap.Iterator;
 import jade.util.leap.Set;
 import jade.util.leap.SortedSetImpl;
+import chat.client.gui.R;
 import chat.ontology.ChatOntology;
 import chat.ontology.Joined;
 import chat.ontology.Left;
+import android.app.Notification;
+import android.app.NotificationManager;
 import android.content.Intent;
 import android.content.Context;
 
@@ -76,6 +79,8 @@ public class ChatClientAgent extends Agent implements ChatClientInterface {
 	private Context context;
 	private String[] leftnames;
 	private String[] joinnames;
+	
+	private int notifyID = 0;
 
 	protected void setup() {
 		Object[] args = getArguments();
@@ -119,12 +124,32 @@ public class ChatClientAgent extends Agent implements ChatClientInterface {
 		context.sendBroadcast(broadcast);
 	}
 
-	private void notifySpoken(String speaker, String sentence) {
-		Intent broadcast = new Intent();
-		broadcast.setAction("jade.demo.chat.REFRESH_CHAT");
-		broadcast.putExtra("sentence", speaker + ": " + sentence + "\n");
-		logger.log(Level.INFO, "Sending broadcast " + broadcast.getAction());
-		context.sendBroadcast(broadcast);
+	private void notifySpoken(String speaker, String sentence, boolean isSpeaker) {
+		if (!isSpeaker) {
+			if (sentence.contains("Agent: Important")) {
+				// This notification is not working.
+				Notification notification = new Notification.Builder(context)
+					.setSmallIcon(R.drawable.icon)
+					.setContentTitle("Missed Important Call from " + speaker)
+					.setContentText("This was a very important call from " + speaker).build();
+				NotificationManager notificationManager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+				notificationManager.notify(notifyID++, notification);
+			} else if (sentence.contains("Agent: Casual")) {
+				// TODO: Check proximity if not busy/private
+			} else {
+				Intent broadcast = new Intent();
+				broadcast.setAction("jade.demo.chat.REFRESH_CHAT");
+				broadcast.putExtra("sentence", speaker + ": " + sentence + "\n");
+				logger.log(Level.INFO, "Sending broadcast " + broadcast.getAction());
+				context.sendBroadcast(broadcast);
+			}
+		} else if (!sentence.contains("Agent: Important") && !sentence.contains("Agent: Casual")) {
+			Intent broadcast = new Intent();
+			broadcast.setAction("jade.demo.chat.REFRESH_CHAT");
+			broadcast.putExtra("sentence", speaker + ": " + sentence + "\n");
+			logger.log(Level.INFO, "Sending broadcast " + broadcast.getAction());
+			context.sendBroadcast(broadcast);
+		}
 	}
 
 	
@@ -225,7 +250,7 @@ public class ChatClientAgent extends Agent implements ChatClientInterface {
 			if (msg != null) {
 				if (msg.getPerformative() == ACLMessage.INFORM) {
 					notifySpoken(msg.getSender().getLocalName(),
-							msg.getContent());
+							msg.getContent(), false);
 				} else {
 					handleUnexpected(msg);
 				}
@@ -255,11 +280,38 @@ public class ChatClientAgent extends Agent implements ChatClientInterface {
 				spokenMsg.addReceiver((AID) it.next());
 			}
 			spokenMsg.setContent(sentence);
-			notifySpoken(myAgent.getLocalName(), sentence);
+			notifySpoken(myAgent.getLocalName(), sentence, true);
 			send(spokenMsg);
 		}
 	} // END of inner class ChatSpeaker
 
+	private class MissedCallResponder extends OneShotBehaviour {
+		private static final long serialVersionUID = 716706562454011741L;
+		private AID missedFrom;
+		
+		private MissedCallResponder(Agent a, String missedFrom) {
+			super(a);
+			this.missedFrom = null;
+			Iterator it = participants.iterator();
+			while (it.hasNext()) {
+				AID cur = (AID) it.next();
+				if (cur.getLocalName().equals(missedFrom)) {
+					this.missedFrom = cur;
+				}
+			}
+		}
+		
+		public void action() {
+			if (this.missedFrom != null) {
+				spokenMsg.clearAllReceiver();
+				spokenMsg.addReceiver(missedFrom);
+				spokenMsg.setContent("Agent: Urgency?");
+				send(spokenMsg);
+			}
+		}
+		
+	}
+	
 	// ///////////////////////////////////////
 	// Methods called by the interface
 	// ///////////////////////////////////////
@@ -267,6 +319,10 @@ public class ChatClientAgent extends Agent implements ChatClientInterface {
 		// Add a ChatSpeaker behaviour that INFORMs all participants about
 		// the spoken sentence
 		addBehaviour(new ChatSpeaker(this, s));
+	}
+	
+	public void handleMissedCall(String missedFrom) {
+		addBehaviour(new MissedCallResponder(this, missedFrom));
 	}
 	
 	public String[] getParticipantNames() {

@@ -9,6 +9,7 @@ package chat.client.agent;
 
 public interface ChatClientInterface {
 	public void handleSpoken(String s);
+	public void handleMissedCall(String name);
 	public String[] getParticipantNames();
 	public String[] leftNames();
 	public String[] joinNames();

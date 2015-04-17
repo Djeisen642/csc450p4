@@ -35,15 +35,20 @@ import jade.wrapper.StaleProxyException;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.BroadcastReceiver;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.database.Cursor;
 import android.location.Criteria;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
+import android.net.Uri;
 import android.os.Bundle;
+import android.provider.BaseColumns;
+import android.provider.ContactsContract;
 import android.telephony.PhoneStateListener;
 import android.telephony.TelephonyManager;
 import android.view.Menu;
@@ -56,6 +61,7 @@ import android.widget.EditText;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import chat.client.agent.ChatClientInterface;
+import chat.client.gui.ParticipantsActivity.Contact;
 
 /**
  * This activity implement the chat interface.
@@ -262,6 +268,7 @@ public class ChatActivity extends Activity {
 			if (action.equalsIgnoreCase("jade.demo.chat.REFRESH_CHAT")) {
 				final TextView chatField = (TextView) findViewById(R.id.chatTextView);
 				String msg = intent.getExtras().getString("sentence");
+				
 				chatField.append(msg);
 
 				String namedLoc = checkLoc(msg);
@@ -307,6 +314,30 @@ public class ChatActivity extends Activity {
 		}
 	}
 	
+	// http://stackoverflow.com/questions/3712112/search-contact-by-phone-number
+	public String getContactDisplayNameByNumber(String number) {
+	    Uri uri = Uri.withAppendedPath(ContactsContract.PhoneLookup.CONTENT_FILTER_URI, Uri.encode(number));
+	    String name = "?";
+
+	    ContentResolver contentResolver = getContentResolver();
+	    Cursor contactLookup = contentResolver.query(uri, new String[] {BaseColumns._ID,
+	            ContactsContract.PhoneLookup.DISPLAY_NAME }, null, null, null);
+
+	    try {
+	        if (contactLookup != null && contactLookup.getCount() > 0) {
+	            contactLookup.moveToNext();
+	            name = contactLookup.getString(contactLookup.getColumnIndex(ContactsContract.Data.DISPLAY_NAME));
+	            //String contactId = contactLookup.getString(contactLookup.getColumnIndex(BaseColumns._ID));
+	        }
+	    } finally {
+	        if (contactLookup != null) {
+	            contactLookup.close();
+	        }
+	    }
+
+	    return name;
+	}
+	
 	class TeleListener extends PhoneStateListener {
 		public void onCallStateChanged (int state, String incomingNumber) {
 			super.onCallStateChanged(state, incomingNumber);
@@ -314,7 +345,8 @@ public class ChatActivity extends Activity {
 			case TelephonyManager.CALL_STATE_IDLE:
 				if(isRinging == true && callReceived == false) {
 					//Missed call from incomingNumber
-					chatClientInterface.handleSpoken("Hello " + incomingNumber);
+					String name = getContactDisplayNameByNumber(incomingNumber);
+					chatClientInterface.handleMissedCall(name);
 				}
 				isRinging = false;
 				callReceived = false;
