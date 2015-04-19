@@ -23,8 +23,8 @@ Boston, MA  02111-1307, USA.
 
 package chat.client.gui;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.regex.Pattern;
 
@@ -65,7 +65,6 @@ import android.widget.EditText;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import chat.client.agent.ChatClientInterface;
-import chat.client.gui.ParticipantsActivity.Contact;
 
 /**
  * This activity implement the chat interface.
@@ -90,7 +89,7 @@ public class ChatActivity extends Activity {
 	private String[] llist;
 	private String[] jlist;
 	
-	private List<String> missedCallers = new ArrayList<String>();
+	private Set<String> missedCallers = new HashSet<String>();
 	
 	private double lat = -91.0;
 	private double lng = -91.0;
