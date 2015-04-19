@@ -26,6 +26,7 @@ package chat.client.gui;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Level;
+import java.util.regex.Pattern;
 
 import jade.core.MicroRuntime;
 import jade.util.Logger;
@@ -34,6 +35,8 @@ import jade.wrapper.O2AException;
 import jade.wrapper.StaleProxyException;
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.Notification;
+import android.app.NotificationManager;
 import android.content.BroadcastReceiver;
 import android.content.ContentResolver;
 import android.content.Context;
@@ -47,6 +50,7 @@ import android.location.LocationListener;
 import android.location.LocationManager;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
 import android.provider.BaseColumns;
 import android.provider.ContactsContract;
 import android.telephony.PhoneStateListener;
@@ -85,9 +89,33 @@ public class ChatActivity extends Activity {
 	private ChatClientInterface chatClientInterface;
 	private String[] llist;
 	private String[] jlist;
+	
+	private List<String> missedCallers = new ArrayList<String>();
+	
+	private double lat = -91.0;
+	private double lng = -91.0;
+	
+	private boolean priv = true;
 
     static boolean isRinging = false;
     static boolean callReceived = false;
+    
+	private boolean urgent = false;
+    
+    Handler locTimerHandler = new Handler();
+    Runnable locTimerRunnable = new Runnable() {
+    	@Override
+    	public void run() {
+    		if(!priv) {
+    			for(String to : missedCallers) {
+        			String message = "Agent: Check Location";
+    				chatClientInterface.handleSpokenTo(to, message);
+    			}
+    		} 
+    		logger.log(Level.INFO, "locTimerRunnable");
+    		locTimerHandler.postDelayed(this, 10000);
+    	}
+    };
     
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
@@ -107,12 +135,14 @@ public class ChatActivity extends Activity {
 
 	    location = locationManager.getLastKnownLocation(provider);
 	    if (location != null) {
-	      updateWithNewLocation(location);
-	      logger.log(Level.INFO, " -- Starting Location --:"+location.toString());
+			lat = location.getLatitude();
+			lng = location.getLongitude();
+			logger.log(Level.INFO, " -- Starting Location --:"+location.toString());
 	    } else {
 	    	location = locationManager.getLastKnownLocation(LocationManager.PASSIVE_PROVIDER);
 	    	if(location != null){
-	    		updateWithNewLocation(location);
+				lat = location.getLatitude();
+				lng = location.getLongitude();
 	    		logger.log(Level.INFO, " -- Passive Location --:"+location.toString());
 	    	}
 	    	else
@@ -123,11 +153,11 @@ public class ChatActivity extends Activity {
 	    LocationListener locationListener = new LocationListener() {
 	        public void onLocationChanged(Location loc) {
 	          // Called when a new location is found by the network location provider.
-	        	location = loc;
-	        	updateWithNewLocation(loc);
-	        	if(location != null)
-	        		logger.log(Level.INFO, " -- Location Changed --:"+location.toString());
-	        	else
+	        	if(loc != null) {
+					lat = loc.getLatitude();
+					lng = loc.getLongitude();
+	        		logger.log(Level.INFO, " -- Location Changed --:"+loc.toString());
+	        	} else
 	        		logger.log(Level.INFO, " -- Location Changed --: to null!");
 	        }
 
@@ -172,6 +202,22 @@ public class ChatActivity extends Activity {
 		clearChatFilter.addAction("jade.demo.chat.CLEAR_CHAT");
 		registerReceiver(myReceiver, clearChatFilter);
 
+		IntentFilter casualFilter = new IntentFilter();
+		casualFilter.addAction("jade.demo.chat.CASUAL");
+		registerReceiver(myReceiver, casualFilter);
+
+		IntentFilter checkLocFilter = new IntentFilter();
+		checkLocFilter.addAction("jade.demo.chat.CHECK_LOC");
+		registerReceiver(myReceiver, checkLocFilter);
+
+		IntentFilter receiveLocFilter = new IntentFilter();
+		receiveLocFilter.addAction("jade.demo.chat.RECEIVE_LOC");
+		registerReceiver(myReceiver, receiveLocFilter);
+
+		IntentFilter urgencyCheckFilter = new IntentFilter();
+		urgencyCheckFilter.addAction("jade.demo.chat.URGENCY_CHECK");
+		registerReceiver(myReceiver, urgencyCheckFilter);
+		
 		setContentView(R.layout.chat);
 
 		Button button = (Button) findViewById(R.id.button_send);
@@ -194,14 +240,21 @@ public class ChatActivity extends Activity {
 		public void onClick(View v) {
 			final EditText messageField = (EditText) findViewById(R.id.edit_message);
 			String message = messageField.getText().toString();
-			if (message != null && !message.equals("")) {
-				String locname;
-				if(locStr != null ){
-					message += locStr;
-//					locname = checkLoc(message);
-//					if(locname != null)
-//						message += locname;
-				}				    
+			if (message.contains("Agent: ")) {
+				if (Pattern.compile(Pattern.quote("private"), Pattern.CASE_INSENSITIVE).matcher(message).find()) {
+					priv = true;
+					messageField.setText("");
+				} else if (Pattern.compile(Pattern.quote("public"), Pattern.CASE_INSENSITIVE).matcher(message).find()) {
+					priv = false;
+					messageField.setText("");
+				} else if (Pattern.compile(Pattern.quote("important"), Pattern.CASE_INSENSITIVE).matcher(message).find()) {
+					urgent = true;
+					messageField.setText("");
+				} else if (Pattern.compile(Pattern.quote("casual"), Pattern.CASE_INSENSITIVE).matcher(message).find()) {
+					urgent = false;
+					messageField.setText("");
+				}
+			} else if (message != null && !message.equals("")) {  
 				try {
 					chatClientInterface.handleSpoken(message);
 					messageField.setText("");
@@ -212,6 +265,30 @@ public class ChatActivity extends Activity {
 
 		}
 	};
+	
+	private double getDistanceFromPhone(double lat2, double lon2) {
+		double lat1 = lat;
+		double lon1 = lng;
+		final double Radius = 6371 * 1E3; //Earth's mean radius
+		double dLat = Math.toRadians(lat2-lat1);
+		double dLon = Math.toRadians(lon2-lon1);
+		double a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+		Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) *
+		Math.sin(dLon/2) * Math.sin(dLon/2);
+		double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+		return Radius * c;
+	}
+	
+	private static double getDistance(double lat1, double lon1, double lat2, double lon2) {
+		final double Radius = 6371 * 1E3; //Earth's mean radius
+		double dLat = Math.toRadians(lat2-lat1);
+		double dLon = Math.toRadians(lon2-lon1);
+		double a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+		Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) *
+		Math.sin(dLon/2) * Math.sin(dLon/2);
+		double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+		return Radius * c;
+	}
 
 	@Override
 	public boolean onCreateOptionsMenu(Menu menu) {
@@ -265,46 +342,81 @@ public class ChatActivity extends Activity {
 			String action = intent.getAction();
 			logger.log(Level.INFO, "Received intent " + action);
 			try{
-			if (action.equalsIgnoreCase("jade.demo.chat.REFRESH_CHAT")) {
-				final TextView chatField = (TextView) findViewById(R.id.chatTextView);
-				String msg = intent.getExtras().getString("sentence");
-				
-				chatField.append(msg);
-
-				String namedLoc = checkLoc(msg);
-				if(namedLoc != null){
-					chatField.append("This is "+namedLoc+"\n");
+				if (action.equalsIgnoreCase("jade.demo.chat.REFRESH_CHAT")) {
+					final TextView chatField = (TextView) findViewById(R.id.chatTextView);
+					chatField.append(intent.getExtras().getString("sentence"));
+					scrollDown();
+				} else if (action.equalsIgnoreCase("jade.demo.chat.CLEAR_CHAT")) {
+					final TextView chatField = (TextView) findViewById(R.id.chatTextView);
+					chatField.setText("");
+				} else if (action.equalsIgnoreCase("jade.demo.chat.REFRESH_PARTICIPANTS")) {
+					final TextView chatField = (TextView) findViewById(R.id.chatTextView);	
+					jlist = chatClientInterface.joinNames();
+					if(jlist != null){
+						for(String s: jlist){
+							chatField.append(s+" has just entered the chat room!\n");
+						}
+					}				
+					llist = chatClientInterface.leftNames();
+					if(llist != null){
+						for(String s: llist){
+							chatField.append(s+" has just left!\n");
+						}
+					}		
+	//				chatField.append(intent.toString());
+					scrollDown();
+				} else if (action.equalsIgnoreCase("jade.demo.chat.CASUAL")) {
+		    		logger.log(Level.INFO, "Casual");
+					String speaker = intent.getExtras().getString("sentence");
+					missedCallers.add(speaker);
+					locTimerHandler.removeCallbacks(locTimerRunnable);
+					locTimerHandler.postDelayed(locTimerRunnable, 0);
+				} else if (action.equalsIgnoreCase("jade.demo.chat.CHECK_LOC")) {
+					if (!priv && lat != -91.0 && lng != -91.0) {
+			    		logger.log(Level.INFO, "Check Loc");
+						String speaker = intent.getExtras().getString("sentence");
+						String message = "Agent: Location:"+ lat+ ":" + lng;
+						chatClientInterface.handleSpokenTo(speaker, message);
+					}
+				} else if (action.equalsIgnoreCase("jade.demo.chat.RECEIVE_LOC")) {
+					String message = intent.getExtras().getString("sentence");
+					String[] msgSplit = message.split(":");
+					logger.log(Level.INFO, message);
+					if (msgSplit.length == 5){
+			    		logger.log(Level.INFO, "Receive Loc");
+						for(String caller : missedCallers) {
+							if (caller.equals(msgSplit[0])) {
+								double theirLat = Double.parseDouble(msgSplit[3]);
+								double theirLong = Double.parseDouble(msgSplit[4]);
+								if (getDistanceFromPhone(theirLat, theirLong) < 50.0) {
+									Notification notification = new Notification.Builder(context)
+									.setSmallIcon(R.drawable.icon)
+									.setContentTitle("Missed Casual Call from " + caller)
+									.setContentText(caller +" is in the area.").build();
+									NotificationManager notificationManager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+									notificationManager.notify(0, notification);
+									missedCallers.remove(caller);
+								}
+							}
+						}
+						if (missedCallers.isEmpty()) {
+							locTimerHandler.removeCallbacks(locTimerRunnable);
+						}
+					}
+				} else if (action.equalsIgnoreCase("jade.demo.chat.URGENCY_CHECK")) {
+					if (urgent) {
+						chatClientInterface.handleSpokenTo(intent.getExtras().getString("sentence"), "Agent: Important");
+					} else {
+						chatClientInterface.handleSpokenTo(intent.getExtras().getString("sentence"), "Agent: Casual");
+					}
+					urgent = false;
 				}
-
-				scrollDown();
-			}
-			if (action.equalsIgnoreCase("jade.demo.chat.CLEAR_CHAT")) {
-				final TextView chatField = (TextView) findViewById(R.id.chatTextView);
-				chatField.setText("");
-			}
-			if (action.equalsIgnoreCase("jade.demo.chat.REFRESH_PARTICIPANTS")) {
-				final TextView chatField = (TextView) findViewById(R.id.chatTextView);	
-				jlist = chatClientInterface.joinNames();
-				if(jlist != null){
-					for(String s: jlist){
-						chatField.append(s+" has just entered the chat room!\n");
-					}
-				}				
-				llist = chatClientInterface.leftNames();
-				if(llist != null){
-					for(String s: llist){
-						chatField.append(s+" has just left!\n");
-					}
-				}		
-//				chatField.append(intent.toString());
-				scrollDown();
-			}
-//			else {
-//				final TextView chatField = (TextView) findViewById(R.id.chatTextView);
-//				chatField.append(intent.toString());
-//				chatField.append(intent.getAction());
-//				scrollDown();
-//			}
+	//			else {
+	//				final TextView chatField = (TextView) findViewById(R.id.chatTextView);
+	//				chatField.append(intent.toString());
+	//				chatField.append(intent.getAction());
+	//				scrollDown();
+	//			}
 			}catch(NullPointerException e){
 				logger.log(Level.INFO, "NullPointerEx " + e.getLocalizedMessage());
 				System.out.println(e.getMessage());
@@ -346,7 +458,7 @@ public class ChatActivity extends Activity {
 				if(isRinging == true && callReceived == false) {
 					//Missed call from incomingNumber
 					String name = getContactDisplayNameByNumber(incomingNumber);
-					chatClientInterface.handleMissedCall(name);
+					chatClientInterface.handleSpokenTo(name, "Agent: Urgency?");
 				}
 				isRinging = false;
 				callReceived = false;
@@ -399,113 +511,5 @@ public class ChatActivity extends Activity {
 						});
 		AlertDialog alert = builder.create();
 		alert.show();		
-	}
-	
-	private void updateWithNewLocation(Location loc){
-
-	    if (loc != null) {
-	      double lat = loc.getLatitude();
-	      double lng = loc.getLongitude();
-	      locStr = "\n @Latitude: " + lat + "\n  Longitude: " + lng;
-	    } else {
-	      locStr = null;
-	    }
-	}
-	
-	private boolean hasLoc(String msg){
-		if(msg.contains("@Latitude:") && msg.contains("Longitude:"))
-			return true;
-		else
-			return false;
-	}
-	
-	private String checkLoc(String msg){
-		if(hasLoc(msg)){
-			String latStr = "@Latitude:";
-			String lonStr = "Longitude:";
-			char[] cs = new char[4];
-			Double lat, lon;
-			try{
-			int start = msg.indexOf(latStr)+latStr.length()+1;
-			int end = start;
-			boolean period = false;
-			while( ((msg.charAt(end) >= '0' && msg.charAt(end) <= '9') 	|| (msg.charAt(end) == '.') 
-					|| (msg.charAt(end) == '-') ) && (end < msg.length()-1) ){
-				if(msg.charAt(end) == '.' && period == true)
-					break;
-				else if(msg.charAt(end) == '.')
-					period = true;
-				end++;				
-			}
-			cs[0]=msg.charAt(start);
-			cs[1]=msg.charAt(end); 
-			lat = Double.parseDouble(msg.substring(start,end));
-			
-			start = msg.indexOf(lonStr)+lonStr.length()+1;
-			end = start;
-			period = false;
-			while( ((msg.charAt(end) >= '0' && msg.charAt(end) <= '9') 	|| (msg.charAt(end) == '.') 
-					|| (msg.charAt(end) == '-') ) && (end < msg.length()-1) ){
-				if(msg.charAt(end) == '.' && period == true)
-					break;
-				else if(msg.charAt(end) == '.')
-					period = true;
-				end++;				
-			}
-			cs[2]=msg.charAt(start);
-			cs[3]=msg.charAt(end); 
-			lon = Double.parseDouble(msg.substring(start,end));
-			}catch(NumberFormatException e){
-				return null;
-			}
-			return new knownLocations().locName(lon, lat);
-			
-		}else{
-			return null;
-		}
-	}
-	
-	public class knownLocations {
-		private List<namedLocation> locList;
-		
-		public knownLocations(){
-			locList = new ArrayList<namedLocation>(3);
-			locList.add(new namedLocation(35.77198,-78.67385,"EBII (Centennial)"));
-			locList.add(new namedLocation(38.90719,-77.03687,"Washington D.C."));
-			locList.add(new namedLocation(48.85661,2.35222,"Paris"));
-		};
-		
-		public String locName(Double lon, Double lat){
-			for(namedLocation l : locList ){
-				double d = getDistance(lat, lon, l.latitude, l.longitude);
-				if(d < 50.0){
-					return l.placeName;
-				}
-			}
-			return null;
-		}		
-	}
-	
-	public class namedLocation {
-		Double latitude;
-		Double longitude;
-		String placeName;
-		
-		public namedLocation(Double lat, Double lon, String nam){
-			latitude=lat;
-			longitude=lon;
-			placeName=nam;
-		}
-	}
-	
-	private static double getDistance(double lat1, double lon1, double lat2, double lon2) {
-		final double Radius = 6371 * 1E3; //Earth's mean radius
-		double dLat = Math.toRadians(lat2-lat1);
-		double dLon = Math.toRadians(lon2-lon1);
-		double a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-		Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) *
-		Math.sin(dLon/2) * Math.sin(dLon/2);
-		double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-		return Radius * c;
 	}
 }
