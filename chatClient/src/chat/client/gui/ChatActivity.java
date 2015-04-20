@@ -33,6 +33,8 @@ import jade.util.Logger;
 import jade.wrapper.ControllerException;
 import jade.wrapper.O2AException;
 import jade.wrapper.StaleProxyException;
+import android.accounts.Account;
+import android.accounts.AccountManager;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Notification;
@@ -40,6 +42,7 @@ import android.app.NotificationManager;
 import android.content.BroadcastReceiver;
 import android.content.ContentResolver;
 import android.content.Context;
+import android.content.ContextWrapper;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
@@ -88,6 +91,7 @@ public class ChatActivity extends Activity {
 	private ChatClientInterface chatClientInterface;
 	private String[] llist;
 	private String[] jlist;
+	private Context context = this;
 	
 	private Set<String> missedCallers = new HashSet<String>();
 	
@@ -98,6 +102,7 @@ public class ChatActivity extends Activity {
 
     static boolean isRinging = false;
     static boolean callReceived = false;
+    static int missedCalls = 0;
     
 	private boolean urgent = false;
     
@@ -216,6 +221,10 @@ public class ChatActivity extends Activity {
 		IntentFilter urgencyCheckFilter = new IntentFilter();
 		urgencyCheckFilter.addAction("jade.demo.chat.URGENCY_CHECK");
 		registerReceiver(myReceiver, urgencyCheckFilter);
+		
+		IntentFilter lostPhoneFilter = new IntentFilter();
+		lostPhoneFilter.addAction("jade.demo.chat.PHONE_LOST");
+		registerReceiver(myReceiver, lostPhoneFilter);
 		
 		setContentView(R.layout.chat);
 
@@ -409,6 +418,20 @@ public class ChatActivity extends Activity {
 						chatClientInterface.handleSpokenTo(intent.getExtras().getString("sentence"), "Agent: Casual");
 					}
 					urgent = false;
+				} else if (action.equalsIgnoreCase("jade.demo.chat.PHONE_LOST")) {
+					logger.log(Level.INFO, "Callee's Phone is Lost");
+					String message = intent.getExtras().getString("sentence");
+					String[] msgSplit = message.split(":");
+					if (msgSplit.length == 6) {
+						String callee = msgSplit[0];
+						String email = msgSplit[3];
+						Notification notification = new Notification.Builder(context)
+						.setSmallIcon(R.drawable.icon)
+						.setContentTitle(callee + " seems to have misplaced their phone.")
+						.setContentText("Reach " + callee + " by email at " + email + ".").build();
+						NotificationManager notificationManager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+						notificationManager.notify(0, notification);
+					}
 				}
 	//			else {
 	//				final TextView chatField = (TextView) findViewById(R.id.chatTextView);
@@ -427,6 +450,9 @@ public class ChatActivity extends Activity {
 	
 	// http://stackoverflow.com/questions/3712112/search-contact-by-phone-number
 	public String getContactDisplayNameByNumber(String number) {
+		if (number == null || number.equals("")) {
+			return "Unknown";
+		}
 	    Uri uri = Uri.withAppendedPath(ContactsContract.PhoneLookup.CONTENT_FILTER_URI, Uri.encode(number));
 	    String name = "?";
 
@@ -451,19 +477,29 @@ public class ChatActivity extends Activity {
 	
 	class TeleListener extends PhoneStateListener {
 		public void onCallStateChanged (int state, String incomingNumber) {
+			logger.log(Level.INFO, "Incoming Number" + incomingNumber);
 			super.onCallStateChanged(state, incomingNumber);
 			switch (state) {
 			case TelephonyManager.CALL_STATE_IDLE:
 				if(isRinging == true && callReceived == false) {
 					//Missed call from incomingNumber
+					missedCalls++;
 					String name = getContactDisplayNameByNumber(incomingNumber);
+					logger.log(Level.INFO, name);
 					chatClientInterface.handleSpokenTo(name, "Agent: Urgency?");
+				}
+				logger.log(Level.INFO, "Concurrent Missed Calls: " + missedCalls);
+				if (missedCalls >= 3) {
+					String caller = getContactDisplayNameByNumber(incomingNumber);
+					logger.log(Level.INFO, caller);
+					chatClientInterface.handleSpokenTo(caller, nickname + ":" + caller + ":" + getEmail(context) + ":Agent: Phone Lost");
 				}
 				isRinging = false;
 				callReceived = false;
 				break;
 			case TelephonyManager.CALL_STATE_OFFHOOK:
 				callReceived = true;
+				missedCalls = 0;
 				break;
 			case TelephonyManager.CALL_STATE_RINGING:
 				isRinging = true;
@@ -510,5 +546,27 @@ public class ChatActivity extends Activity {
 						});
 		AlertDialog alert = builder.create();
 		alert.show();		
+	}
+	
+	static String getEmail(Context context) {
+		AccountManager accountManager = AccountManager.get(context); 
+		Account account = getAccount(accountManager);
+
+		if (account == null) {
+			return null;
+		} else {
+			return account.name;
+		}
+	}
+
+	private static Account getAccount(AccountManager accountManager) {
+		Account[] accounts = accountManager.getAccounts();
+		Account account;
+		if (accounts.length > 0) {
+			account = accounts[0];      
+		} else {
+			account = null;
+		}
+		return account;
 	}
 }

@@ -45,6 +45,8 @@ import chat.client.gui.R;
 import chat.ontology.ChatOntology;
 import chat.ontology.Joined;
 import chat.ontology.Left;
+import android.accounts.Account;
+import android.accounts.AccountManager;
 import android.app.Notification;
 import android.app.NotificationManager;
 import android.content.Intent;
@@ -129,7 +131,6 @@ public class ChatClientAgent extends Agent implements ChatClientInterface {
 		if (sentence.contains("Agent: ")) {
 			if (!isSpeaker) {
 				if (sentence.contains("Agent: Important")) {
-					// This notification is not working.
 					Notification notification = new Notification.Builder(context)
 						.setSmallIcon(R.drawable.icon)
 						.setContentTitle("Missed Important Call from " + speaker)
@@ -158,6 +159,14 @@ public class ChatClientAgent extends Agent implements ChatClientInterface {
 					Intent broadcast = new Intent();
 					broadcast.setAction("jade.demo.chat.URGENCY_CHECK");
 					broadcast.putExtra("sentence", speaker);
+					logger.log(Level.INFO, "Sending broadcast " + broadcast.getAction());
+					context.sendBroadcast(broadcast);
+				} else if (sentence.contains("Agent: Phone Lost")) {
+					logger.log(Level.INFO, "Broadcasting phone lost to " + speaker);
+					logger.log(Level.INFO, "Message: " + sentence);
+					Intent broadcast = new Intent();
+					broadcast.setAction("jade.demo.chat.PHONE_LOST");
+					broadcast.putExtra("sentence", speaker + ":" + sentence);
 					logger.log(Level.INFO, "Sending broadcast " + broadcast.getAction());
 					context.sendBroadcast(broadcast);
 				} else {
