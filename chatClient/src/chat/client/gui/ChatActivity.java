@@ -23,6 +23,8 @@ Boston, MA  02111-1307, USA.
 
 package chat.client.gui;
 
+import chat.client.agent.CalendarContentResolver;
+
 import java.util.HashSet;
 import java.util.Set;
 import java.util.logging.Level;
@@ -41,6 +43,7 @@ import android.app.Notification;
 import android.app.NotificationManager;
 import android.content.BroadcastReceiver;
 import android.content.ContentResolver;
+import android.content.ContentUris;
 import android.content.Context;
 import android.content.ContextWrapper;
 import android.content.DialogInterface;
@@ -98,7 +101,7 @@ public class ChatActivity extends Activity {
 	private double lat = -91.0;
 	private double lng = -91.0;
 	
-	private boolean priv = true;
+	private boolean priv = true;	//true == private
 
     static boolean isRinging = false;
     static boolean callReceived = false;
@@ -380,6 +383,11 @@ public class ChatActivity extends Activity {
 					locTimerHandler.removeCallbacks(locTimerRunnable);
 					locTimerHandler.postDelayed(locTimerRunnable, 0);
 				} else if (action.equalsIgnoreCase("jade.demo.chat.CHECK_LOC")) {
+					
+					//Check calendar if we're in a public event w/ an available status
+					//2 = private, 0, 1 = server default, 3 = public
+					priv = (CalendarContentResolver.findAvailability(context)==2)?true:false;
+					
 					if (!priv && lat != -91.0 && lng != -91.0) {
 			    		logger.log(Level.INFO, "Check Loc");
 						String speaker = intent.getExtras().getString("sentence");
@@ -444,6 +452,7 @@ public class ChatActivity extends Activity {
 				System.out.println(e.getMessage());
 				final TextView chatField = (TextView) findViewById(R.id.chatTextView);
 				chatField.append("NullPointerEx\n");
+				chatField.append(action.toString()+"\n");
 			}
 		}
 	}
@@ -569,4 +578,7 @@ public class ChatActivity extends Activity {
 		}
 		return account;
 	}
+	
+	
 }
+
