@@ -23,6 +23,8 @@ Boston, MA  02111-1307, USA.
 
 package chat.client.gui;
 
+import chat.client.agent.CalendarContentResolver;
+
 import java.util.HashSet;
 import java.util.Set;
 import java.util.logging.Level;
@@ -41,6 +43,7 @@ import android.app.Notification;
 import android.app.NotificationManager;
 import android.content.BroadcastReceiver;
 import android.content.ContentResolver;
+import android.content.ContentUris;
 import android.content.Context;
 import android.content.ContextWrapper;
 import android.content.DialogInterface;
@@ -98,8 +101,6 @@ public class ChatActivity extends Activity {
 	
 	private double lat = -91.0;
 	private double lng = -91.0;
-	
-	private boolean priv = true;
 
     static boolean isRinging = false;
     static boolean callReceived = false;
@@ -111,6 +112,7 @@ public class ChatActivity extends Activity {
     Runnable locTimerRunnable = new Runnable() {
     	@Override
     	public void run() {
+			boolean priv = (CalendarContentResolver.findAvailability(context)==2)?true:false;
     		if(!priv) {
     			for(String to : missedCallers) {
         			String message = "Agent: Check Location";
@@ -118,7 +120,7 @@ public class ChatActivity extends Activity {
     			}
     		} 
     		logger.log(Level.INFO, "locTimerRunnable");
-    		locTimerHandler.postDelayed(this, 10000);
+    		locTimerHandler.postDelayed(this, 10000); // 10 seconds
     	}
     };
     
@@ -250,13 +252,7 @@ public class ChatActivity extends Activity {
 			final EditText messageField = (EditText) findViewById(R.id.edit_message);
 			String message = messageField.getText().toString();
 			if (message.contains("Agent: ")) {
-				if (Pattern.compile(Pattern.quote("private"), Pattern.CASE_INSENSITIVE).matcher(message).find()) {
-					priv = true;
-					messageField.setText("");
-				} else if (Pattern.compile(Pattern.quote("public"), Pattern.CASE_INSENSITIVE).matcher(message).find()) {
-					priv = false;
-					messageField.setText("");
-				} else if (Pattern.compile(Pattern.quote("important"), Pattern.CASE_INSENSITIVE).matcher(message).find()) {
+				if (Pattern.compile(Pattern.quote("important"), Pattern.CASE_INSENSITIVE).matcher(message).find()) {
 					urgent = true;
 					messageField.setText("");
 				} else if (Pattern.compile(Pattern.quote("casual"), Pattern.CASE_INSENSITIVE).matcher(message).find()) {
@@ -381,22 +377,10 @@ public class ChatActivity extends Activity {
 					locTimerHandler.removeCallbacks(locTimerRunnable);
 					locTimerHandler.postDelayed(locTimerRunnable, 0);
 				} else if (action.equalsIgnoreCase("jade.demo.chat.CHECK_LOC")) {
-					//check calendar here for if we're private for location
-					
-					//Create a public event for right now to use for testing
-					/*Intent calIntent = new Intent(Intent.ACTION_INSERT); 
-					calIntent.setType("vnd.android.cursor.item/event");    
-					calIntent.putExtra(CalendarContract.Events.TITLE, "My House Party"); 
-					calIntent.putExtra(CalendarContract.Events.EVENT_LOCATION, "My Beach House"); 
-					calIntent.putExtra(CalendarContract.Events.DESCRIPTION, "A Pig Roast on the Beach");
-					String nowt = Long.toString(System.currentTimeMillis());
-					calIntent.putExtra(CalendarContract.Events.DTSTART, nowt);
-					calIntent.putExtra(CalendarContract.Events.ALL_DAY, true);
-					calIntent.putExtra(CalendarContract.Events.ACCESS_LEVEL, CalendarContract.Events.ACCESS_PUBLIC);
-					startActivity(calIntent);*/
-					
-					//Check if the current event is public
-					
+				
+					//Check calendar if we're in a public event w/ an available status
+					//2 = private, 0, 1 = server default, 3 = public
+					boolean priv = (CalendarContentResolver.findAvailability(context)==2)?true:false;
 					
 					if (!priv && lat != -91.0 && lng != -91.0) {
 			    		logger.log(Level.INFO, "Check Loc");
@@ -462,6 +446,7 @@ public class ChatActivity extends Activity {
 				System.out.println(e.getMessage());
 				final TextView chatField = (TextView) findViewById(R.id.chatTextView);
 				chatField.append("NullPointerEx\n");
+				chatField.append(action.toString()+"\n");
 			}
 		}
 	}
@@ -495,22 +480,25 @@ public class ChatActivity extends Activity {
 	
 	class TeleListener extends PhoneStateListener {
 		public void onCallStateChanged (int state, String incomingNumber) {
-			logger.log(Level.INFO, "Incoming Number" + incomingNumber);
+			logger.log(Level.INFO, "Incoming Number: " + incomingNumber);
 			super.onCallStateChanged(state, incomingNumber);
 			switch (state) {
 			case TelephonyManager.CALL_STATE_IDLE:
+				String name = getContactDisplayNameByNumber(incomingNumber);
 				if(isRinging == true && callReceived == false) {
 					//Missed call from incomingNumber
-					missedCalls++;
-					String name = getContactDisplayNameByNumber(incomingNumber);
-					logger.log(Level.INFO, name);
-					chatClientInterface.handleSpokenTo(name, "Agent: Urgency?");
+					if (!name.isEmpty()) {
+						missedCalls++;
+						logger.log(Level.INFO, name);
+						chatClientInterface.handleSpokenTo(name, "Agent: Urgency?");
+					}
 				}
 				logger.log(Level.INFO, "Concurrent Missed Calls: " + missedCalls);
 				if (missedCalls >= 3) {
-					String caller = getContactDisplayNameByNumber(incomingNumber);
-					logger.log(Level.INFO, caller);
-					chatClientInterface.handleSpokenTo(caller, nickname + ":" + caller + ":" + getEmail(context) + ":Agent: Phone Lost");
+					if (!name.isEmpty()) {
+						logger.log(Level.INFO, name);
+						chatClientInterface.handleSpokenTo(name, nickname + ":" + name + ":" + getEmail(context) + ":Agent: Phone Lost");
+					}
 				}
 				isRinging = false;
 				callReceived = false;
@@ -587,4 +575,7 @@ public class ChatActivity extends Activity {
 		}
 		return account;
 	}
+	
+	
 }
+
