@@ -16,7 +16,6 @@ e.g. For Sam to call emulator 1 with an important call, type in "Agent: Importan
 That should create a notification on emulator 1.
 For Sam to call emulator 1 with a casual call, type in "Agent: Casual" and call 5556667777 to emulator 1.
 (Every call is marked as casual by default. So, "Agent: Casual" is unnecessary.)
-(By default, both agents are private. To set an agent as public, type in "Agent: public.")
 So, since both are private, they won't check each others locations.
 If emulator 1 is public but 2 is private, it will send emulator 2 a location check and emulator 2 won't.
 If emulator 1 and 2 are public, it will send emulator 2 a location check. Emulator 2 will send a location. Emulator 1 will receive it and check the distance. If within 50m, emulator 1 will create a notification.
