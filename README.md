@@ -20,18 +20,29 @@ So, since both are private, they won't check each others locations.
 If emulator 1 is public but 2 is private, it will send emulator 2 a location check and emulator 2 won't.
 If emulator 1 and 2 are public, it will send emulator 2 a location check. Emulator 2 will send a location. Emulator 1 will receive it and check the distance. If within 50m, emulator 1 will create a notification.
 
+If a more than 3 missed calls are made to a user, the application will notify the caller that the user has misplaced their phone. For this to function as intended, a user account with an email has to be set up on the emulator. These steps can be taken to test that the notifications are functioning: 
+* On an emulator (emulator1), go to Settings => Add account.
+* Enter all required info. 
+* Create a contact named "Andy" with phone number 3334445555.
+* Run the chatClient application.
+* Enter a nickname to enter the chatroom (nickname here can be anything).
+* Open another emulator (emulator2) and run chatClient. 
+* Enter the nickname "Andy" and enter the chatroom.
+* Now place 3 calls with DDMS to the emulator1 using incoming number 3334445555, rejecting the call on the emulator each time.
+* On the third rejection, emulator2 should receive a notification mentioning the email address you entered for the account you created on emulator1. 
+
 In order to add a calendar (only works with NCSU gmail apparently)
--Open up the calendar
--Attempt to add an entry
--You will get a pop up requiring to add calendar - click ok
--Enter your ncsu email address and password and click next
--After the server retrieves your info, change domain to google\<your ncsu unity id>@ncsu.edu and Password to your ncsu password.
--Change the server to m.google.com
--Scroll down and click next.
--A Remote Security notification displays - click okay
--Select the items you want to sync and click next
--Enter a name for your calendar and click next
--You should receive a prompt to activate device administration. If you
+* Open up the calendar
+* Attempt to add an entry
+* You will get a pop up requiring to add calendar - click ok
+* Enter your ncsu email address and password and click next
+* After the server retrieves your info, change domain to google\<your ncsu unity id>@ncsu.edu and Password to your ncsu password.
+* Change the server to m.google.com
+* Scroll down and click next.
+* A Remote Security notification displays - click okay
+* Select the items you want to sync and click next
+* Enter a name for your calendar and click next
+* You should receive a prompt to activate device administration. If you
 don't see it check your notifications. Click Activate.
 
 Now to check calendar interface make an event that is currently going
