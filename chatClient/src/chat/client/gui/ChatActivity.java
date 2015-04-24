@@ -55,6 +55,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.provider.BaseColumns;
+import android.provider.CalendarContract;
 import android.provider.ContactsContract;
 import android.telephony.PhoneStateListener;
 import android.telephony.TelephonyManager;
@@ -380,6 +381,23 @@ public class ChatActivity extends Activity {
 					locTimerHandler.removeCallbacks(locTimerRunnable);
 					locTimerHandler.postDelayed(locTimerRunnable, 0);
 				} else if (action.equalsIgnoreCase("jade.demo.chat.CHECK_LOC")) {
+					//check calendar here for if we're private for location
+					
+					//Create a public event for right now to use for testing
+					/*Intent calIntent = new Intent(Intent.ACTION_INSERT); 
+					calIntent.setType("vnd.android.cursor.item/event");    
+					calIntent.putExtra(CalendarContract.Events.TITLE, "My House Party"); 
+					calIntent.putExtra(CalendarContract.Events.EVENT_LOCATION, "My Beach House"); 
+					calIntent.putExtra(CalendarContract.Events.DESCRIPTION, "A Pig Roast on the Beach");
+					String nowt = Long.toString(System.currentTimeMillis());
+					calIntent.putExtra(CalendarContract.Events.DTSTART, nowt);
+					calIntent.putExtra(CalendarContract.Events.ALL_DAY, true);
+					calIntent.putExtra(CalendarContract.Events.ACCESS_LEVEL, CalendarContract.Events.ACCESS_PUBLIC);
+					startActivity(calIntent);*/
+					
+					//Check if the current event is public
+					
+					
 					if (!priv && lat != -91.0 && lng != -91.0) {
 			    		logger.log(Level.INFO, "Check Loc");
 						String speaker = intent.getExtras().getString("sentence");
