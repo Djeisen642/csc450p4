@@ -19,3 +19,22 @@ For Sam to call emulator 1 with a casual call, type in "Agent: Casual" and call 
 So, since both are private, they won't check each others locations.
 If emulator 1 is public but 2 is private, it will send emulator 2 a location check and emulator 2 won't.
 If emulator 1 and 2 are public, it will send emulator 2 a location check. Emulator 2 will send a location. Emulator 1 will receive it and check the distance. If within 50m, emulator 1 will create a notification.
+
+In order to add a calendar (only works with NCSU gmail apparently)
+-Open up the calendar
+-Attempt to add an entry
+-You will get a pop up requiring to add calendar - click ok
+-Enter your ncsu email address and password and click next
+-After the server retrieves your info, change domain to google\<your ncsu unity id>@ncsu.edu and Password to your ncsu password.
+-Change the server to m.google.com
+-Scroll down and click next.
+-A Remote Security notification displays - click okay
+-Select the items you want to sync and click next
+-Enter a name for your calendar and click next
+-You should receive a prompt to activate device administration. If you
+don't see it check your notifications. Click Activate.
+
+Now to check calendar interface make an event that is currently going
+on during the check.  It will only check back to midnight for the
+current day and it will only check 1 event if they're conflicting. 
+
