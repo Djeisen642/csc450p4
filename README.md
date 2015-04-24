@@ -1,26 +1,26 @@
-csc450p4
-========
-
 CSC450 Project 4: Ring Manager Agent
+Taylor Deckard, Aaron Mahler, Jason Suttles
 
-Create two android emulators.
+Create two android emulators running Android Lollipop.
 Start them both.
 Let's call them emulator 1 which should be running on port 5554 and emulator 2 which should be running on port 5556.
-On emulator 1 create a contact named "Sam" with phone number 5556667777.
+On emulator 1, create a contact named "Sam" with phone number 5556667777.
 Send a geo location of lat 20 and long 20.
 On emulator 2 send a geo location of lat 0 and long 0.
 Go into Run Configurations -> Target -> Launch on all compatible devices.
 Run it.
 To set urgency of a call, before "calling" type in "Agent: Important" or "Agent: Casual".
-e.g. For Sam to call emulator 1 with an important call, type in "Agent: Important" and call 5556667777 to emulator 1.
-That should create a notification on emulator 1.
-For Sam to call emulator 1 with a casual call, type in "Agent: Casual" and call 5556667777 to emulator 1.
+e.g. For Sam to call emulator 1 with an important call, type in "Agent: Important" and, on emulator 1, call 5556667777.
+That should create a notification on emulator 1 notifying the user of the important missed call.
+For Sam to call emulator 1 with a casual call, type in "Agent: Casual" and, on emulator 1, call 5556667777.
 (Every call is marked as casual by default. So, "Agent: Casual" is unnecessary.)
+(Agents are set as available unless there is an event that's on the calendar that sets the user as busy. Read below for instructions on creating a calendar event.)
 So, since both are private, they won't check each others locations.
-If emulator 1 is public but 2 is private, it will send emulator 2 a location check and emulator 2 won't.
-If emulator 1 and 2 are public, it will send emulator 2 a location check. Emulator 2 will send a location. Emulator 1 will receive it and check the distance. If within 50m, emulator 1 will create a notification.
+If emulator 1 is public but 2 is private, it will send emulator 2 a location check and emulator 2 won't respond.
+If emulator 1 and 2 are public, emulator 1 will send emulator 2 a location check. Emulator 2 will respond with a location. Emulator 1 will receive it and check the distance. If within 50m, emulator 1 will notify the user of the missed casual call and the proximity.
+We set the distance to greater than 50m, so the notification won't be created. Send a geo location of lat 20 and long 20 to emulator 2. The notification should then pop up.
 
-If a more than 3 missed calls are made to a user, the application will notify the caller that the user has misplaced their phone. For this to function as intended, a user account with an email has to be set up on the emulator. These steps can be taken to test that the notifications are functioning: 
+If more than 3 missed calls are made to a user, the application will notify the caller that the user has misplaced their phone. For this to function as intended, a user account with an email has to be set up on the emulator. These steps can be taken to test that the notifications are functioning: 
 * On an emulator (emulator1), go to Settings => Add account.
 * Enter all required info. 
 * Create a contact named "Andy" with phone number 3334445555.
@@ -47,5 +47,5 @@ don't see it check your notifications. Click Activate.
 
 Now to check calendar interface make an event that is currently going
 on during the check.  It will only check back to midnight for the
-current day and it will only check 1 event if they're conflicting. 
+current day and it will only check 1 event if they're conflicting.
 

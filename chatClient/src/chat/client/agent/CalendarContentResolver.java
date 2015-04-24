@@ -49,7 +49,7 @@ public class CalendarContentResolver {
 	   */
 	  public static int findAvailability(Context context) {
 		  
-	    int retval = 2;	//return value, private default
+	    int retval = 1;	//return value, available default
 
         ContentResolver contentResolver = context.getContentResolver();
         Calendar calendar = Calendar.getInstance();
@@ -76,7 +76,7 @@ public class CalendarContentResolver {
         
         Cursor cursor = contentResolver.query(Uri.parse("content://com.android.calendar/events"),
         		(new String[] { "calendar_id", "title", "description", "dtstart", "dtend","eventTimezone",
-        				        "eventLocation", Events.ACCESS_LEVEL, Events.ALLOWED_AVAILABILITY }),
+        				        "eventLocation", "availability" }),
         		"(" + dtstart + ">" + startOfDay.getTimeInMillis() + " and " + dtend + "<" + endOfDay.getTimeInMillis() + ")", null, "dtstart ASC");
 
         try {
@@ -95,10 +95,10 @@ public class CalendarContentResolver {
             		}
             		if(Long.parseLong(colvals[3]) < nowt && nowt < Long.parseLong(colvals[4])){
         			//We're currently in the event
-            			//Column index 7 == access level, keys:
-                		// 0,1 default
-                		// 2 private
-                		// 3 public
+            			//Column index 7 == availability, keys:
+                		// 0 busy
+                		// 1 free
+                		// 2 tentative
             			retval = Integer.parseInt(colvals[7]);
             		}
                 }

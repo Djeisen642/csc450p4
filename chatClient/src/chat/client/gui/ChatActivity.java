@@ -112,7 +112,7 @@ public class ChatActivity extends Activity {
     Runnable locTimerRunnable = new Runnable() {
     	@Override
     	public void run() {
-			boolean priv = (CalendarContentResolver.findAvailability(context)==2)?true:false;
+			boolean priv = (CalendarContentResolver.findAvailability(context)==0)?true:false;
     		if(!priv) {
     			for(String to : missedCallers) {
         			String message = "Agent: Check Location";
@@ -380,8 +380,8 @@ public class ChatActivity extends Activity {
 				
 					//Check calendar if we're in a public event w/ an available status
 					//2 = private, 0, 1 = server default, 3 = public
-					boolean priv = (CalendarContentResolver.findAvailability(context)==2)?true:false;
-					
+					boolean priv = (CalendarContentResolver.findAvailability(context)==0)?true:false;
+					logger.log(Level.INFO, "privacy setting: " + CalendarContentResolver.findAvailability(context) + "priv: " + priv);
 					if (!priv && lat != -91.0 && lng != -91.0) {
 			    		logger.log(Level.INFO, "Check Loc");
 						String speaker = intent.getExtras().getString("sentence");
@@ -429,7 +429,7 @@ public class ChatActivity extends Activity {
 						String email = msgSplit[3];
 						Notification notification = new Notification.Builder(context)
 						.setSmallIcon(R.drawable.icon)
-						.setContentTitle(callee + " seems to have misplaced their phone.")
+						.setContentTitle(callee + " forgot their phone.")
 						.setContentText("Reach " + callee + " by email at " + email + ".").build();
 						NotificationManager notificationManager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
 						notificationManager.notify(0, notification);
