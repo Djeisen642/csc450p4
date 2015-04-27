@@ -1,6 +1,17 @@
-CSC450 Project 4: Ring Manager Agent
-Taylor Deckard, Aaron Mahler, Jason Suttles
+CSC450 Project 4b: Ring Manager Agent
+Team:
+Taylor Deckard (stdeckar)
+Aaron Mahler (almahler)
+Jason Suttles (jssuttle)
 
+Assumptions:
+All events will start after midnight and not last past midnight so
+that they are not multi-day events. There will be no conflicting
+events that occur at the same time in the calendar.  Whether to share
+a location will be based upon the availability of the event (not the
+visibility).
+
+--How to test scenarios--
 Create two android emulators running Android Lollipop.
 Start them both.
 Let's call them emulator 1 which should be running on port 5554 and emulator 2 which should be running on port 5556.
